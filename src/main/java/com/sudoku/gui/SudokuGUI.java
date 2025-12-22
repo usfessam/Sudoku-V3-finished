@@ -1,15 +1,32 @@
 package com.sudoku.gui;
 
-import com.sudoku.view.Controllable;
-import com.sudoku.view.UserAction;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.io.IOException;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+
 import com.sudoku.adapter.ControllerAdapter;
 import com.sudoku.controller.SudokuController;
-import com.sudoku.exception.*;
-
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
-import java.io.IOException;
+import com.sudoku.exception.InvalidGameException;
+import com.sudoku.exception.NotFoundException;
+import com.sudoku.exception.SolutionInvalidException;
+import com.sudoku.view.Controllable;
+import com.sudoku.view.UserAction;
 
 public class SudokuGUI extends JFrame {
   private Controllable controller;
@@ -31,14 +48,32 @@ public class SudokuGUI extends JFrame {
     initializeGame();
   }
 
-  private void initializeGame() {
+ private void initializeGame() {
     boolean[] catalog = controller.getCatalog();
     boolean hasCurrent = catalog[0];
     boolean hasAllModes = catalog[1];
 
     try {
       if (hasCurrent) {
-        loadGame('c');
+        // FIX: Ask user before loading the incomplete game
+        int response = JOptionPane.showConfirmDialog(
+            this,
+            "An unfinished game was found. Do you want to continue it?",
+            "Resume Game",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (response == JOptionPane.YES_OPTION) {
+          loadGame('c');
+        } else {
+          // User chose NO: Ignore current game and verify other modes
+          if (hasAllModes) {
+            askDifficulty();
+          } else {
+            askForSourceFile();
+          }
+        }
       } else if (hasAllModes) {
         askDifficulty();
       } else {

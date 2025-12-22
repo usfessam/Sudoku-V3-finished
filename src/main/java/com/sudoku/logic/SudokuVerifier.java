@@ -1,20 +1,16 @@
 package com.sudoku.logic;
 
-import com.sudoku.model.VerificationState;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import com.sudoku.model.VerificationState;
 
 public class SudokuVerifier {
 
   public VerificationResult verify(int[][] board) {
-    // Check for zeros first - if any exist, board is INCOMPLETE
-    if (hasZeros(board)) {
-      return new VerificationResult(VerificationState.INCOMPLETE, new ArrayList<>());
-    }
-
-    // Check for rule violations
+    // 1. Check for rule violations FIRST (Rows, Cols, Boxes)
     List<String> invalidPositions = new ArrayList<>();
 
     // Check all rows
@@ -37,11 +33,19 @@ public class SudokuVerifier {
       }
     }
 
-    if (invalidPositions.isEmpty()) {
-      return new VerificationResult(VerificationState.VALID, invalidPositions);
-    } else {
+    // 2. Decision Logic:
+    // If we found ANY violations, the board is INVALID (regardless of zeros)
+    if (!invalidPositions.isEmpty()) {
       return new VerificationResult(VerificationState.INVALID, invalidPositions);
     }
+
+    // 3. If no violations, THEN check if it's incomplete
+    if (hasZeros(board)) {
+      return new VerificationResult(VerificationState.INCOMPLETE, new ArrayList<>());
+    }
+
+    // 4. If neither, it is VALID
+    return new VerificationResult(VerificationState.VALID, invalidPositions);
   }
 
   private boolean hasZeros(int[][] board) {

@@ -1,14 +1,22 @@
 package com.sudoku.storage;
 
-import com.sudoku.model.DifficultyEnum;
-import java.io.*;
-import java.nio.file.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.sudoku.model.DifficultyEnum;
+
 public class StorageManager {
   private static final String BASE_DIR = "sudoku_games";
-  private static final String CURRENT_DIR = "current";
+  private static final String CURRENT_DIR = "incomplete";
   private static final String LOG_FILE = "game.log";
   private static final String GAME_FILE = "game.txt";
 
@@ -57,7 +65,7 @@ public class StorageManager {
     return readBoardFromFile(currentPath);
   }
 
-  public int[][] loadGame(DifficultyEnum difficulty) throws IOException {
+ public int[][] loadGame(DifficultyEnum difficulty) throws IOException {
     Path difficultyPath = basePath.resolve(difficulty.getFolderName());
     List<Path> gameFiles = listGameFiles(difficultyPath);
 
@@ -67,6 +75,10 @@ public class StorageManager {
 
     Path gameFile = gameFiles.get(0);
     int[][] board = readBoardFromFile(gameFile);
+
+    // FIX: When starting a NEW game, we must clear the old log!
+    // Otherwise, the log from the previous session will persist.
+    Files.deleteIfExists(basePath.resolve(CURRENT_DIR).resolve(LOG_FILE));
 
     saveCurrentGame(board);
 
