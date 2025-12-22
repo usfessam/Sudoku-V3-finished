@@ -35,6 +35,7 @@ public class SudokuVerifier {
 
     // 2. Decision Logic:
     // If we found ANY violations, the board is INVALID (regardless of zeros)
+    // This ensures RED cells appear even if the board is incomplete.
     if (!invalidPositions.isEmpty()) {
       return new VerificationResult(VerificationState.INVALID, invalidPositions);
     }
