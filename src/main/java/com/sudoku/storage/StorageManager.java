@@ -19,6 +19,7 @@ public class StorageManager {
   private static final String CURRENT_DIR = "incomplete";
   private static final String LOG_FILE = "game.log";
   private static final String GAME_FILE = "game.txt";
+  private static final String INITIAL_FILE = "initial.txt"; // NEW
 
   private final Path basePath;
 
@@ -41,14 +42,12 @@ public class StorageManager {
 
   public void saveGame(DifficultyEnum difficulty, int[][] board) throws IOException {
     Path difficultyPath = basePath.resolve(difficulty.getFolderName());
-
     int index = 1;
     Path filePath;
     do {
       filePath = difficultyPath.resolve("game_" + index + ".txt");
       index++;
     } while (Files.exists(filePath));
-
     writeBoardToFile(board, filePath);
   }
 
@@ -65,7 +64,18 @@ public class StorageManager {
     return readBoardFromFile(currentPath);
   }
 
- public int[][] loadGame(DifficultyEnum difficulty) throws IOException {
+  public int[][] loadGame(DifficultyEnum difficulty) throws IOException {
+    // SPECIAL CASE: Load the initial clean state
+    if (difficulty == DifficultyEnum.INITIAL) {
+        Path initPath = basePath.resolve(CURRENT_DIR).resolve(INITIAL_FILE);
+        if (!Files.exists(initPath)) {
+            // Fallback: Just return current game if initial is missing
+            return loadCurrentGame();
+        }
+        return readBoardFromFile(initPath);
+    }
+
+    // NORMAL CASE: Load a New Game (Easy/Medium/Hard)
     Path difficultyPath = basePath.resolve(difficulty.getFolderName());
     List<Path> gameFiles = listGameFiles(difficultyPath);
 
@@ -76,10 +86,15 @@ public class StorageManager {
     Path gameFile = gameFiles.get(0);
     int[][] board = readBoardFromFile(gameFile);
 
-    // FIX: When starting a NEW game, we must clear the old log!
-    // Otherwise, the log from the previous session will persist.
+    // CLEANUP: Start fresh! Delete old logs and old initial state
     Files.deleteIfExists(basePath.resolve(CURRENT_DIR).resolve(LOG_FILE));
+    Files.deleteIfExists(basePath.resolve(CURRENT_DIR).resolve(INITIAL_FILE));
 
+    // SAVE INITIAL STATE: Save this fresh board as "initial.txt"
+    Path initialSavePath = basePath.resolve(CURRENT_DIR).resolve(INITIAL_FILE);
+    writeBoardToFile(board, initialSavePath);
+
+    // Save as "current" (the editable one)
     saveCurrentGame(board);
 
     return board;
@@ -88,7 +103,6 @@ public class StorageManager {
   public void deleteGame(DifficultyEnum difficulty) throws IOException {
     Path difficultyPath = basePath.resolve(difficulty.getFolderName());
     List<Path> gameFiles = listGameFiles(difficultyPath);
-
     if (!gameFiles.isEmpty()) {
       Files.deleteIfExists(gameFiles.get(0));
     }
@@ -98,6 +112,7 @@ public class StorageManager {
     Path currentPath = basePath.resolve(CURRENT_DIR);
     Files.deleteIfExists(currentPath.resolve(GAME_FILE));
     Files.deleteIfExists(currentPath.resolve(LOG_FILE));
+    Files.deleteIfExists(currentPath.resolve(INITIAL_FILE));
   }
 
   public boolean hasCurrentGame() {
@@ -108,10 +123,9 @@ public class StorageManager {
   public boolean hasAllDifficulties() {
     try {
       for (DifficultyEnum diff : DifficultyEnum.values()) {
+        if (diff == DifficultyEnum.INITIAL) continue; // Skip initial check
         Path diffPath = basePath.resolve(diff.getFolderName());
-        if (listGameFiles(diffPath).isEmpty()) {
-          return false;
-        }
+        if (listGameFiles(diffPath).isEmpty()) return false;
       }
       return true;
     } catch (IOException e) {
@@ -124,8 +138,7 @@ public class StorageManager {
       for (int row = 0; row < 9; row++) {
         for (int col = 0; col < 9; col++) {
           writer.write(String.valueOf(board[row][col]));
-          if (col < 8)
-            writer.write(" ");
+          if (col < 8) writer.write(" ");
         }
         writer.newLine();
       }
@@ -134,31 +147,22 @@ public class StorageManager {
 
   private int[][] readBoardFromFile(Path filePath) throws IOException {
     int[][] board = new int[9][9];
-
     try (BufferedReader reader = Files.newBufferedReader(filePath)) {
       for (int row = 0; row < 9; row++) {
         String line = reader.readLine();
-        if (line == null) {
-          throw new IOException("Invalid board file: insufficient rows");
-        }
-
+        if (line == null) throw new IOException("Invalid board file");
         String[] values = line.trim().split("\\s+");
-        if (values.length != 9) {
-          throw new IOException("Invalid board file: row " + row + " has " + values.length + " values");
-        }
-
+        if (values.length != 9) throw new IOException("Invalid row");
         for (int col = 0; col < 9; col++) {
           board[row][col] = Integer.parseInt(values[col]);
         }
       }
     }
-
     return board;
   }
 
   private List<Path> listGameFiles(Path directory) throws IOException {
     List<Path> gameFiles = new ArrayList<>();
-
     if (Files.exists(directory)) {
       try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory, "*.txt")) {
         for (Path entry : stream) {
@@ -166,45 +170,27 @@ public class StorageManager {
         }
       }
     }
-
     return gameFiles;
   }
 
   public void logMove(int x, int y, int newValue, int oldValue) throws IOException {
     Path logPath = basePath.resolve(CURRENT_DIR).resolve(LOG_FILE);
     String logEntry = String.format("%d,%d,%d,%d%n", x, y, newValue, oldValue);
-
-    Files.write(logPath, logEntry.getBytes(),
-        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+    Files.write(logPath, logEntry.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
   }
 
   public int[] undoLastMove() throws IOException {
     Path logPath = basePath.resolve(CURRENT_DIR).resolve(LOG_FILE);
-
-    if (!Files.exists(logPath)) {
-      return null;
-    }
-
+    if (!Files.exists(logPath)) return null;
     List<String> lines = Files.readAllLines(logPath);
-    if (lines.isEmpty()) {
-      return null;
-    }
-
+    if (lines.isEmpty()) return null;
     String lastLine = lines.get(lines.size() - 1);
     String[] parts = lastLine.split(",");
-
-    if (parts.length != 4) {
-      throw new IOException("Invalid log entry format");
-    }
-
+    if (parts.length != 4) throw new IOException("Invalid log entry");
     int[] moveData = new int[4];
-    for (int i = 0; i < 4; i++) {
-      moveData[i] = Integer.parseInt(parts[i].trim());
-    }
-
+    for (int i = 0; i < 4; i++) moveData[i] = Integer.parseInt(parts[i].trim());
     lines.remove(lines.size() - 1);
     Files.write(logPath, lines);
-
     return moveData;
   }
 }

@@ -1,12 +1,13 @@
 package com.sudoku.logic;
 
-import com.sudoku.model.DifficultyEnum;
-import com.sudoku.model.VerificationState;
-import com.sudoku.exception.SolutionInvalidException;
-import com.sudoku.storage.StorageManager;
-import com.sudoku.util.RandomPairs;
 import java.io.IOException;
 import java.util.List;
+
+import com.sudoku.exception.SolutionInvalidException;
+import com.sudoku.model.DifficultyEnum;
+import com.sudoku.model.VerificationState;
+import com.sudoku.storage.StorageManager;
+import com.sudoku.util.RandomPairs;
 
 public class GameGenerator {
   private final SudokuVerifier verifier;
@@ -18,28 +19,22 @@ public class GameGenerator {
   }
 
   public void generateFromSolved(int[][] sourceSolution) throws SolutionInvalidException, IOException {
-    // MUST verify source solution first
     SudokuVerifier.VerificationResult result = verifier.verify(sourceSolution);
-
     if (result.getState() != VerificationState.VALID) {
       throw new SolutionInvalidException(
           "Source solution is " + result.getState() + ": " + result.toFormattedString());
     }
 
-    // Generate all three difficulty levels at once
     RandomPairs randomPairs = new RandomPairs();
 
-    // Generate Easy
     int[][] easyBoard = cloneBoard(sourceSolution);
     removeCells(easyBoard, randomPairs.generateDistinctPairs(DifficultyEnum.EASY.getCellsToRemove()));
     storage.saveGame(DifficultyEnum.EASY, easyBoard);
 
-    // Generate Medium
     int[][] mediumBoard = cloneBoard(sourceSolution);
     removeCells(mediumBoard, randomPairs.generateDistinctPairs(DifficultyEnum.MEDIUM.getCellsToRemove()));
     storage.saveGame(DifficultyEnum.MEDIUM, mediumBoard);
 
-    // Generate Hard
     int[][] hardBoard = cloneBoard(sourceSolution);
     removeCells(hardBoard, randomPairs.generateDistinctPairs(DifficultyEnum.HARD.getCellsToRemove()));
     storage.saveGame(DifficultyEnum.HARD, hardBoard);
@@ -47,9 +42,7 @@ public class GameGenerator {
 
   private void removeCells(int[][] board, List<int[]> positions) {
     for (int[] pos : positions) {
-      int row = pos[0];
-      int col = pos[1];
-      board[row][col] = 0;
+      board[pos[0]][pos[1]] = 0;
     }
   }
 

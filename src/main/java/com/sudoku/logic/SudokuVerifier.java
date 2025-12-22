@@ -33,17 +33,21 @@ public class SudokuVerifier {
       }
     }
 
+    // --- THE CRITICAL FIX START ---
+    
     // 2. Decision Logic:
-    // If we found ANY violations, the board is INVALID (regardless of zeros)
+    // Check for violations BEFORE checking for empty cells.
     // This ensures RED cells appear even if the board is incomplete.
     if (!invalidPositions.isEmpty()) {
       return new VerificationResult(VerificationState.INVALID, invalidPositions);
     }
 
-    // 3. If no violations, THEN check if it's incomplete
+    // 3. If no violations found, THEN check if it's incomplete
     if (hasZeros(board)) {
       return new VerificationResult(VerificationState.INCOMPLETE, new ArrayList<>());
     }
+
+    // --- THE CRITICAL FIX END ---
 
     // 4. If neither, it is VALID
     return new VerificationResult(VerificationState.VALID, invalidPositions);
